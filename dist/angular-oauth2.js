@@ -14,6 +14,10 @@
     }
 })(this, function(angular, ngCookies, queryString) {
     var ngModule = angular.module("angular-oauth2", [ ngCookies ]).config(oauthConfig).factory("oauthInterceptor", oauthInterceptor).provider("OAuth", OAuthProvider).provider("OAuthToken", OAuthTokenProvider);
+    function oauthConfig($httpProvider) {
+        $httpProvider.interceptors.push("oauthInterceptor");
+    }
+    oauthConfig.$inject = [ "$httpProvider" ];
     function oauthInterceptor($q, $rootScope, OAuthToken) {
         return {
             request: function request(config) {
@@ -24,11 +28,12 @@
                 return config;
             },
             responseError: function responseError(rejection) {
+                var expiredTokenErrorValue = OAuthToken.getErrorValueByErrorType("expiredToken");
                 if (400 === rejection.status && rejection.data && ("invalid_request" === rejection.data.error || "invalid_grant" === rejection.data.error)) {
                     OAuthToken.removeToken();
                     $rootScope.$emit("oauth:error", rejection);
                 }
-                if (401 === rejection.status && rejection.data && "invalid_token" === rejection.data.error || rejection.headers("www-authenticate") && 0 === rejection.headers("www-authenticate").indexOf("Bearer")) {
+                if (401 === rejection.status && rejection.data && expiredTokenErrorValue === rejection.data.error || rejection.headers("www-authenticate") && 0 === rejection.headers("www-authenticate").indexOf("Bearer")) {
                     $rootScope.$emit("oauth:error", rejection);
                 }
                 return $q.reject(rejection);
@@ -36,10 +41,6 @@
         };
     }
     oauthInterceptor.$inject = [ "$q", "$rootScope", "OAuthToken" ];
-    function oauthConfig($httpProvider) {
-        $httpProvider.interceptors.push("oauthInterceptor");
-    }
-    oauthConfig.$inject = [ "$httpProvider" ];
     var _createClass = function() {
         function defineProperties(target, props) {
             for (var i = 0; i < props.length; i++) {
@@ -212,6 +213,9 @@
             name: "token",
             options: {
                 secure: true
+            },
+            errorValues: {
+                expiredToken: "invalid_token"
             }
         };
         this.configure = function(params) {
@@ -235,6 +239,11 @@
                     key: "getToken",
                     value: function getToken() {
                         return $cookies.getObject(config.name);
+                    }
+                }, {
+                    key: "getErrorValueByErrorType",
+                    value: function getErrorValueByErrorType($errorType) {
+                        return config.errorValues[$errorType];
                     }
                 }, {
                     key: "getAccessToken",

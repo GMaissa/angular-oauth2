@@ -14,6 +14,9 @@ function OAuthTokenProvider() {
     name: 'token',
     options: {
       secure: true
+    },
+    errorValues: {
+      expiredToken: 'invalid_token'
     }
   };
 
@@ -56,6 +59,10 @@ function OAuthTokenProvider() {
 
       getToken() {
         return $cookies.getObject(config.name);
+      }
+
+      getErrorValueByErrorType($errorType) {
+        return config.errorValues[$errorType];
       }
 
       /**
